@@ -14,8 +14,15 @@ from google_forms_mcp.draft_service import DraftService
 from google_forms_mcp.drafts import DraftStore
 from google_forms_mcp.google_gateway import GoogleFormsGateway
 from google_forms_mcp.models import FormSpec
+from google_forms_mcp.multitenancy import (
+    multiuser_enabled,
+    multiuser_store,
+    tenant_credentials,
+    tenant_runtime_dir,
+)
 from google_forms_mcp.patches import PatchOperation
 from google_forms_mcp.service import FormService
+from google_forms_mcp.tenant import current_user_id, require_user_id
 
 mcp = MCPServer(
     name="google-forms",
@@ -35,12 +42,14 @@ class _PreviewOnlyGateway:
 
 
 def _google_gateway() -> GoogleFormsGateway:
-    credentials = load_credentials()
+    credentials = tenant_credentials() if multiuser_enabled() else load_credentials()
     google = build("forms", "v1", credentials=credentials, cache_discovery=False)
     return GoogleFormsGateway(google)
 
 
 def _draft_database() -> Path:
+    if multiuser_enabled():
+        return tenant_runtime_dir() / "drafts.db"
     configured = os.environ.get("GOOGLE_FORMS_DRAFT_DB")
     if configured:
         return Path(configured).expanduser()
@@ -49,6 +58,8 @@ def _draft_database() -> Path:
 
 
 def _confirmation_signer() -> ConfirmationSigner:
+    if multiuser_enabled():
+        return ConfirmationSigner(tenant_runtime_dir() / "confirmation.key")
     configured = os.environ.get("GOOGLE_FORMS_CONFIRMATION_KEY")
     key_path = (
         Path(configured).expanduser()
@@ -61,6 +72,11 @@ def _confirmation_signer() -> ConfirmationSigner:
 def _draft_service(*, with_google: bool = False) -> DraftService:
     gateway = _google_gateway() if with_google else _PreviewOnlyGateway()
     return DraftService(DraftStore(_draft_database()), gateway)
+
+
+def _audit(event_type: str, details: dict[str, object]) -> None:
+    if multiuser_enabled():
+        multiuser_store().audit_event(require_user_id(), event_type, details)
 
 
 @mcp.tool()
@@ -83,7 +99,9 @@ def create_google_form(spec: FormSpec, confirm: bool = False) -> dict[str, Any]:
 @mcp.tool()
 def create_form_draft(spec: FormSpec) -> dict[str, Any]:
     """Save a persistent, versioned form draft without creating a Google Form."""
-    return _draft_service().create(spec.model_dump(exclude_computed_fields=True))
+    result = _draft_service().create(spec.model_dump(exclude_computed_fields=True))
+    _audit("draft_created", {"draft_id": result["draft_id"]})
+    return result
 
 
 @mcp.tool()
@@ -95,13 +113,20 @@ def get_form_draft(draft_id: str) -> dict[str, Any]:
 @mcp.tool()
 def patch_form_draft(draft_id: str, operations: list[PatchOperation]) -> dict[str, Any]:
     """Apply targeted operations to a draft while preserving unrelated content."""
-    return _draft_service().patch(draft_id, operations)
+    result = _draft_service().patch(draft_id, operations)
+    _audit(
+        "draft_patched",
+        {"draft_id": draft_id, "version": result["version"]},
+    )
+    return result
 
 
 @mcp.tool()
 def undo_draft_change(draft_id: str) -> dict[str, Any]:
     """Move a draft back by one version without touching Google Forms."""
-    return _draft_service().undo(draft_id)
+    result = _draft_service().undo(draft_id)
+    _audit("draft_undone", {"draft_id": draft_id, "version": result["version"]})
+    return result
 
 
 @mcp.tool()
@@ -113,9 +138,15 @@ def publish_form_draft(
     """Create a native Google Form from the exact approved draft version."""
     if not confirm:
         return _draft_service().publish(draft_id, confirm=False, expected_version=expected_version)
-    return _draft_service(with_google=True).publish(
+    result = _draft_service(with_google=True).publish(
         draft_id, confirm=True, expected_version=expected_version
     )
+    if result.get("status") == "published":
+        _audit(
+            "form_published",
+            {"draft_id": draft_id, "form_id": result["form_id"]},
+        )
+    return result
 
 
 @mcp.tool()
@@ -140,6 +171,7 @@ def update_existing_google_form(
                 "form_id": form_id,
                 "revision_id": revision_id,
                 "operations": operation_data,
+                "user_id": current_user_id(),
             }
         )
         return {
@@ -163,6 +195,8 @@ def update_existing_google_form(
         plan = _confirmation_signer().verify(plan_token)
         if plan.get("form_id") != form_id:
             raise InvalidConfirmationPlan("Confirmation plan is for a different form")
+        if plan.get("user_id") != current_user_id():
+            raise InvalidConfirmationPlan("Confirmation plan belongs to a different user")
         planned_operations = _PATCH_OPERATIONS_ADAPTER.validate_python(plan.get("operations"))
         revision_id = str(plan["revision_id"])
     except (InvalidConfirmationPlan, KeyError, ValueError) as exc:
@@ -171,16 +205,29 @@ def update_existing_google_form(
             "form_id": form_id,
             "message": str(exc),
         }
-    return _google_gateway().patch_form(
+    result = _google_gateway().patch_form(
         form_id,
         planned_operations,
         expected_revision_id=revision_id,
     )
+    _audit(
+        "form_updated",
+        {"form_id": form_id, "operation_count": len(planned_operations)},
+    )
+    return result
 
 
 @mcp.tool()
 def google_forms_auth_status() -> dict[str, Any]:
-    """Report OAuth file locations and whether authorization is configured."""
+    """Report whether the active user's Google authorization is configured."""
+    if multiuser_enabled():
+        user = multiuser_store().get_user(require_user_id())
+        return {
+            "mode": "multiuser",
+            "user_id": user.user_id,
+            "email": user.email,
+            "google_connected": user.google_connected,
+        }
     return authorization_status()
 
 

@@ -1,7 +1,7 @@
 ---
 name: google-forms
 description: Create and refine native Google Forms safely.
-version: 0.3.0
+version: 0.4.0
 author: Derek Su, Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]

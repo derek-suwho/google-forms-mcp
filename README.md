@@ -19,7 +19,7 @@ Give an existing AI assistant the ability to create, refine, publish, and update
 
 ## Current MVP limits
 
-Version 0.3 does not yet configure conditional branching, create quizzes, upload files, change themes, read responses, or provide per-user OAuth. Google may create an empty form if the follow-up item population request fails; the tool reports the API error rather than pretending creation succeeded.
+Version 0.4 does not yet configure conditional branching, create quizzes, upload files, change themes, or read responses. Google may create an empty form if the follow-up item population request fails; the tool records that partial form and blocks duplicate retries rather than pretending creation succeeded.
 
 ## Install
 
@@ -53,6 +53,39 @@ The MCP executable is then available at:
    ```
 
 The refresh token is stored at `~/.config/google-forms-mcp/token.json` with owner-only permissions when the platform supports them. Override it with `GOOGLE_FORMS_TOKEN`.
+
+## Multi-user public mode
+
+Version 0.4 adds a public onboarding mode where each user connects their own Google account and receives a private MCP bearer token for Claude, ChatGPT, or another HTTP MCP client.
+
+Set:
+
+```bash
+GOOGLE_FORMS_MULTIUSER=true
+GOOGLE_FORMS_PUBLIC_BASE_URL=https://forms.example.com
+GOOGLE_FORMS_WEB_CLIENT_SECRET=/run/secrets/google-web-client.json
+GOOGLE_FORMS_MULTIUSER_DATA_DIR=/var/lib/google-forms-mcp
+```
+
+The Google credential must be an OAuth client with application type **Web application**. Register this exact redirect URI:
+
+```text
+https://forms.example.com/oauth/google/callback
+```
+
+Users visit `/`, select **Connect Google Forms**, approve only identity and Forms-body access, and receive a `gfm_...` token shown once. They configure their AI application's MCP authorization header with that token.
+
+Multi-user protections include:
+
+- Fernet-encrypted Google credentials with a private server-side master key
+- SHA-256-hashed MCP tokens; plaintext tokens are never stored
+- Per-user draft databases and confirmation keys
+- Browser-bound, one-use PKCE OAuth state with expiration
+- Per-user request limits across all of the user's tokens
+- Token revocation and Google disconnect
+- Per-user audit events without prompts, form contents, OAuth tokens, or MCP tokens
+
+See [`docs/public-product.md`](docs/public-product.md) for deployment, Google consent-screen, privacy, and client-connection requirements.
 
 ## Connect an MCP client
 

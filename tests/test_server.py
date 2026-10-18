@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from google_forms_mcp import server as server_module
+from google_forms_mcp.drafts import DraftNotFound
 from google_forms_mcp.models import FormSpec
 from google_forms_mcp.patches import RemoveOption, SetRequired
 from google_forms_mcp.server import (
@@ -16,6 +17,7 @@ from google_forms_mcp.server import (
     undo_draft_change,
     update_existing_google_form,
 )
+from google_forms_mcp.tenant import reset_current_user, set_current_user
 
 
 def test_mcp_server_exposes_preview_create_and_auth_status_tools() -> None:
@@ -145,3 +147,39 @@ def test_existing_form_confirmation_token_binds_reviewed_operations(
     assert len(gateway.applied) == 1
     assert isinstance(gateway.applied[0], SetRequired)
     assert gateway.applied[0].required is True
+
+
+def test_multiuser_drafts_are_isolated_by_authenticated_tenant(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("GOOGLE_FORMS_MULTIUSER", "true")
+    monkeypatch.setenv("GOOGLE_FORMS_MULTIUSER_DATA_DIR", str(tmp_path))
+    spec = FormSpec.model_validate(
+        {
+            "title": "Tenant draft",
+            "sections": [
+                {
+                    "title": "Questions",
+                    "questions": [{"title": "Name", "type": "short_text"}],
+                }
+            ],
+        }
+    )
+
+    first_context = set_current_user("user-one")
+    try:
+        first = create_form_draft(spec)
+    finally:
+        reset_current_user(first_context)
+
+    second_context = set_current_user("user-two")
+    try:
+        second = create_form_draft(spec)
+        with pytest.raises(DraftNotFound):
+            get_form_draft(first["draft_id"])
+    finally:
+        reset_current_user(second_context)
+
+    assert first["draft_id"] != second["draft_id"]
+    assert (tmp_path / "tenants" / "user-one" / "drafts.db").exists()
+    assert (tmp_path / "tenants" / "user-two" / "drafts.db").exists()
