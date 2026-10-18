@@ -23,9 +23,7 @@ def has_supported_scope(scopes: Sequence[str] | None) -> bool:
 
 
 def credential_paths() -> tuple[Path, Path]:
-    config_home = Path(
-        os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))
-    ).expanduser()
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))).expanduser()
     app_dir = config_home / "google-forms-mcp"
     client = Path(
         os.environ.get("GOOGLE_FORMS_CLIENT_SECRET", str(app_dir / "credentials.json"))

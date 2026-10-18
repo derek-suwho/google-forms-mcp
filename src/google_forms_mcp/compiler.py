@@ -46,6 +46,16 @@ def _question_payload(question: QuestionSpec) -> JsonObject:
     return payload
 
 
+def compile_question_item(question: QuestionSpec) -> JsonObject:
+    item: JsonObject = {
+        "title": question.title,
+        "questionItem": {"question": _question_payload(question)},
+    }
+    if question.description:
+        item["description"] = question.description
+    return item
+
+
 def compile_item_requests(spec: FormSpec) -> list[JsonObject]:
     """Compile a validated form into ordered forms.batchUpdate createItem requests."""
     requests: list[JsonObject] = []
@@ -55,18 +65,11 @@ def compile_item_requests(spec: FormSpec) -> list[JsonObject]:
         section_item: JsonObject = {"title": section.title, "pageBreakItem": {}}
         if section.description:
             section_item["description"] = section.description
-        requests.append(
-            {"createItem": {"item": section_item, "location": {"index": index}}}
-        )
+        requests.append({"createItem": {"item": section_item, "location": {"index": index}}})
         index += 1
 
         for question in section.questions:
-            item: JsonObject = {
-                "title": question.title,
-                "questionItem": {"question": _question_payload(question)},
-            }
-            if question.description:
-                item["description"] = question.description
+            item = compile_question_item(question)
             requests.append({"createItem": {"item": item, "location": {"index": index}}})
             index += 1
 

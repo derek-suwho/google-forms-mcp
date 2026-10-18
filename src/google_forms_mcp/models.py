@@ -33,7 +33,7 @@ class QuestionSpec(BaseModel):
     low_label: str = Field(default="", max_length=100)
     high_label: str = Field(default="", max_length=100)
 
-    @field_validator("title", "description", "low_label", "high_label")
+    @field_validator("title", "description", "low_label", "high_label", mode="before")
     @classmethod
     def strip_text(cls, value: str) -> str:
         return value.strip()
@@ -66,7 +66,7 @@ class SectionSpec(BaseModel):
     description: str = Field(default="", max_length=2000)
     questions: list[QuestionSpec] = Field(min_length=1, max_length=200)
 
-    @field_validator("title", "description")
+    @field_validator("title", "description", mode="before")
     @classmethod
     def strip_text(cls, value: str) -> str:
         return value.strip()
@@ -81,10 +81,22 @@ class FormSpec(BaseModel):
     description: str = Field(default="", max_length=5000)
     sections: list[SectionSpec] = Field(min_length=1, max_length=75)
 
-    @field_validator("title", "description")
+    @field_validator("title", "description", mode="before")
     @classmethod
     def strip_text(cls, value: str) -> str:
         return value.strip()
+
+    @model_validator(mode="after")
+    def validate_unique_patch_selectors(self) -> FormSpec:
+        section_titles = [section.title for section in self.sections]
+        if len(section_titles) != len(set(section_titles)):
+            raise ValueError("Section titles must be unique")
+        question_titles = [
+            question.title for section in self.sections for question in section.questions
+        ]
+        if len(question_titles) != len(set(question_titles)):
+            raise ValueError("Question titles must be unique")
+        return self
 
     @property
     def question_count(self) -> int:

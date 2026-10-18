@@ -1,6 +1,6 @@
 # Google Forms MCP
 
-Give an existing AI assistant the ability to preview and create native Google Forms. The assistant handles natural language; this server handles validation, explicit confirmation, Google OAuth, and deterministic Forms API calls.
+Give an existing AI assistant the ability to create, refine, publish, and update native Google Forms. The assistant handles natural language; this server maintains versioned drafts, applies explicit patches, enforces confirmation, and performs deterministic Forms API calls.
 
 ## What works
 
@@ -8,7 +8,10 @@ Give an existing AI assistant the ability to preview and create native Google Fo
 - Multi-section forms
 - Short text, paragraph, multiple choice, checkboxes, dropdown, linear scale, date, and time questions
 - Required questions and descriptions
-- Preview-before-create safety boundary
+- Persistent SQLite drafts with version numbers and undo
+- Targeted patches that preserve unrelated questions and settings
+- Direct targeted updates to existing native Google Forms
+- Preview-before-publish and confirmation safety boundaries
 - Minimal OAuth scope: `forms.body`
 - MCP 2.x stdio transport
 - Authenticated Streamable HTTP transport for Claude and ChatGPT connectors
@@ -16,7 +19,7 @@ Give an existing AI assistant the ability to preview and create native Google Fo
 
 ## Current MVP limits
 
-Version 0.2 does not yet update existing forms, configure branching, create quizzes, upload files, change themes, or read responses. Google may create an empty form if the follow-up item population request fails; the tool reports the API error rather than pretending creation succeeded.
+Version 0.3 does not yet configure conditional branching, create quizzes, upload files, change themes, read responses, or provide per-user OAuth. Google may create an empty form if the follow-up item population request fails; the tool reports the API error rather than pretending creation succeeded.
 
 ## Install
 
@@ -89,7 +92,7 @@ GOOGLE_FORMS_CONNECTOR_PUBLIC_HOSTS='forms.example.com' \
 uv run google-forms-connector
 ```
 
-Connect Claude or ChatGPT to `https://your-domain.example/mcp` with the request header `Authorization: Bearer <random-token>`. The hosted connector currently represents one Google account. See [`docs/connectors.md`](docs/connectors.md) for deployment, platform setup, and security details.
+Connect Claude or ChatGPT to `https://your-domain.example/mcp` and configure the `Authorization` request header with the connector bearer token. The hosted connector currently represents one Google account. See [`docs/connectors.md`](docs/connectors.md) for deployment, platform setup, and security details.
 
 ## Tools
 
@@ -97,9 +100,29 @@ Connect Claude or ChatGPT to `https://your-domain.example/mcp` with the request 
 
 Validates a structured form specification and returns a normalized draft. It never authenticates or creates anything.
 
-### `create_google_form`
+### `create_form_draft`
 
-Creates the form only when `confirm` is `true`. Agents should call `preview_google_form` first and display the draft to the user.
+Saves a validated draft at version 1 without contacting Google.
+
+### `get_form_draft`
+
+Returns the current version, normalized specification, publication state, and summary.
+
+### `patch_form_draft`
+
+Applies only the requested operations and creates a new version. Supported operations include form titles/descriptions, section renames, adding/deleting/renaming questions, question descriptions, required flags, and adding/removing choice options.
+
+### `undo_draft_change`
+
+Moves the draft back one version. A subsequent patch creates a new history branch and discards the abandoned future revisions.
+
+### `publish_form_draft`
+
+Creates and publishes the native Google Form from the reviewed draft only when `confirm=true` and `expected_version` matches the reviewed version, then records the resulting form ID on the draft. Published drafts become immutable; further changes use the existing-form update tool.
+
+### `update_existing_google_form`
+
+Previews or applies explicit patch operations to a published native Google Form. The preview returns the current Google `revision_id`, exact operations, and a signed `plan_token`. The confirmed call executes the immutable signed plan and fails closed if either the plan is altered or Google changed after review.
 
 ### `google_forms_auth_status`
 
@@ -151,7 +174,27 @@ A valid tool payload looks like:
 }
 ```
 
-After the user approves the returned draft, the assistant calls `create_google_form` with the same `spec` and `"confirm": true`.
+The assistant saves this with `create_form_draft`. A targeted follow-up such as “remove Public transit and make Transportation required” becomes:
+
+```json
+{
+  "draft_id": "<draft-id>",
+  "operations": [
+    {
+      "operation": "remove_option",
+      "question_title": "Transportation",
+      "option": "Public transit"
+    },
+    {
+      "operation": "set_required",
+      "question_title": "Transportation",
+      "required": true
+    }
+  ]
+}
+```
+
+`patch_form_draft` returns the exact change list and version 2 while every unrelated field remains unchanged. After approval, the assistant calls `publish_form_draft` with the draft ID, `expected_version: 2`, and `confirm: true`.
 
 ## Development
 
@@ -167,5 +210,7 @@ The tests use in-memory fakes and never contact Google.
 
 - Never commit `credentials.json` or `token.json`; both are ignored by Git.
 - The server requests only the Forms body scope and does not read responses.
-- Creation requires an explicit confirmation flag.
+- Draft databases, SQLite sidecars, and confirmation keys are restricted to owner read/write permissions where supported.
+- Creation, publication, and existing-form updates require explicit confirmation tied to reviewed versions or signed plans.
+- If Google allocates a form but later setup fails, the form ID is retained and automatic retries are blocked to avoid duplicate forms.
 - For shared installations, run one server per Google account or isolate each account's token path.

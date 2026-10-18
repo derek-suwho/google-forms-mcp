@@ -16,7 +16,7 @@ Claude or ChatGPT
 
 The connector bearer token authenticates Claude or ChatGPT to this server. The Google OAuth token separately authorizes this server to create forms in one Google account. Do not share one deployment with users who should not share access to that Google account.
 
-A public multi-user connector requires per-user OAuth sessions, encrypted token storage, account disconnect/revocation, and an MCP-compatible OAuth authorization server. Those are intentionally outside version 0.2.
+A public multi-user connector requires per-user OAuth sessions, encrypted token storage, account disconnect/revocation, and an MCP-compatible OAuth authorization server. Those are intentionally outside version 0.3.
 
 ## 1. Authorize the Google account
 
@@ -66,6 +66,8 @@ The included Dockerfile runs the connector on `PORT` and expects these secrets o
 - `GOOGLE_FORMS_CONNECTOR_TOKEN`
 - `GOOGLE_FORMS_CLIENT_SECRET`
 - `GOOGLE_FORMS_TOKEN`
+- `GOOGLE_FORMS_DRAFT_DB` for persistent conversational draft history
+- `GOOGLE_FORMS_CONFIRMATION_KEY` for signed, immutable mutation approvals
 
 Example container invocation:
 

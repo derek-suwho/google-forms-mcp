@@ -48,9 +48,7 @@ def test_choice_question_requires_two_unique_options() -> None:
                 "sections": [
                     {
                         "title": "Questions",
-                        "questions": [
-                            {"title": "Pick", "type": "dropdown", "options": ["A", "A"]}
-                        ],
+                        "questions": [{"title": "Pick", "type": "dropdown", "options": ["A", "A"]}],
                     }
                 ],
             }
@@ -74,6 +72,76 @@ def test_linear_scale_rejects_out_of_range_bounds() -> None:
                             }
                         ],
                     }
+                ],
+            }
+        )
+
+
+def test_whitespace_only_titles_and_options_are_rejected_after_normalization() -> None:
+    with pytest.raises(ValidationError):
+        FormSpec.model_validate(
+            {
+                "title": "   ",
+                "sections": [
+                    {
+                        "title": "Questions",
+                        "questions": [{"title": "Name", "type": "short_text"}],
+                    }
+                ],
+            }
+        )
+
+    with pytest.raises(ValidationError, match="at least two unique options"):
+        FormSpec.model_validate(
+            {
+                "title": "Choices",
+                "sections": [
+                    {
+                        "title": "Questions",
+                        "questions": [
+                            {
+                                "title": "Pick",
+                                "type": "multiple_choice",
+                                "options": ["A", "   "],
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
+
+
+def test_duplicate_selector_titles_are_rejected() -> None:
+    with pytest.raises(ValidationError, match="Section titles must be unique"):
+        FormSpec.model_validate(
+            {
+                "title": "Duplicate sections",
+                "sections": [
+                    {
+                        "title": "Same",
+                        "questions": [{"title": "One", "type": "short_text"}],
+                    },
+                    {
+                        "title": "Same",
+                        "questions": [{"title": "Two", "type": "short_text"}],
+                    },
+                ],
+            }
+        )
+
+    with pytest.raises(ValidationError, match="Question titles must be unique"):
+        FormSpec.model_validate(
+            {
+                "title": "Duplicate questions",
+                "sections": [
+                    {
+                        "title": "First",
+                        "questions": [{"title": "Same", "type": "short_text"}],
+                    },
+                    {
+                        "title": "Second",
+                        "questions": [{"title": "Same", "type": "paragraph"}],
+                    },
                 ],
             }
         )

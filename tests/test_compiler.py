@@ -48,9 +48,7 @@ def test_compile_item_requests_preserves_order_and_google_question_shapes() -> N
     requests = compile_item_requests(sample_spec())
 
     assert len(requests) == 6
-    assert [request["createItem"]["location"]["index"] for request in requests] == list(
-        range(6)
-    )
+    assert [request["createItem"]["location"]["index"] for request in requests] == list(range(6))
     assert requests[0]["createItem"]["item"] == {
         "title": "Basics",
         "pageBreakItem": {},
@@ -58,16 +56,18 @@ def test_compile_item_requests_preserves_order_and_google_question_shapes() -> N
     assert requests[1]["createItem"]["item"]["questionItem"] == {
         "question": {"required": True, "textQuestion": {"paragraph": False}}
     }
-    assert requests[2]["createItem"]["item"]["questionItem"]["question"][
-        "choiceQuestion"
-    ] == {
+    assert requests[2]["createItem"]["item"]["questionItem"]["question"]["choiceQuestion"] == {
         "type": "RADIO",
         "options": [{"value": "Car"}, {"value": "Bus"}],
         "shuffle": False,
     }
-    assert requests[4]["createItem"]["item"]["questionItem"]["question"][
-        "scaleQuestion"
-    ] == {"low": 1, "high": 5, "lowLabel": "Poor", "highLabel": "Great"}
-    assert requests[5]["createItem"]["item"]["questionItem"]["question"][
-        "choiceQuestion"
-    ]["type"] == "CHECKBOX"
+    assert requests[4]["createItem"]["item"]["questionItem"]["question"]["scaleQuestion"] == {
+        "low": 1,
+        "high": 5,
+        "lowLabel": "Poor",
+        "highLabel": "Great",
+    }
+    assert (
+        requests[5]["createItem"]["item"]["questionItem"]["question"]["choiceQuestion"]["type"]
+        == "CHECKBOX"
+    )

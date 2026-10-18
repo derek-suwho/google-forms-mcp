@@ -40,9 +40,7 @@ def test_mcp_endpoint_accepts_matching_bearer_before_protocol_validation() -> No
 
 
 def test_public_host_allowlist_blocks_dns_rebinding() -> None:
-    with TestClient(
-        build_http_app("top-secret", public_hosts=["forms.example.com"])
-    ) as client:
+    with TestClient(build_http_app("top-secret", public_hosts=["forms.example.com"])) as client:
         allowed = client.post(
             "/mcp",
             headers={

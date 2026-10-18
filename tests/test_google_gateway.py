@@ -18,6 +18,7 @@ class FakeFormsResource:
     def __init__(self) -> None:
         self.create_bodies: list[dict[str, Any]] = []
         self.batch_calls: list[tuple[str, dict[str, Any]]] = []
+        self.publish_calls: list[tuple[str, dict[str, Any]]] = []
 
     def create(self, *, body: dict[str, Any]) -> Executable:
         self.create_bodies.append(body)
@@ -30,6 +31,10 @@ class FakeFormsResource:
 
     def batchUpdate(self, *, formId: str, body: dict[str, Any]) -> Executable:
         self.batch_calls.append((formId, body))
+        return Executable({})
+
+    def setPublishSettings(self, *, formId: str, body: dict[str, Any]) -> Executable:
+        self.publish_calls.append((formId, body))
         return Executable({})
 
 
@@ -51,9 +56,7 @@ def test_gateway_creates_form_then_populates_it_in_one_batch() -> None:
             "sections": [
                 {
                     "title": "Profile",
-                    "questions": [
-                        {"title": "Name", "type": "short_text", "required": True}
-                    ],
+                    "questions": [{"title": "Name", "type": "short_text", "required": True}],
                 }
             ],
         }
@@ -74,6 +77,20 @@ def test_gateway_creates_form_then_populates_it_in_one_batch() -> None:
         }
     }
     assert len(batch_body["requests"]) == 3
+    assert google.resource.publish_calls == [
+        (
+            "form-42",
+            {
+                "publishSettings": {
+                    "publishState": {
+                        "isPublished": True,
+                        "isAcceptingResponses": True,
+                    }
+                },
+                "updateMask": "publishState",
+            },
+        )
+    ]
     assert result == {
         "formId": "form-42",
         "editUri": "https://docs.google.com/forms/d/form-42/edit",
