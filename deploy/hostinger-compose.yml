@@ -1,0 +1,35 @@
+services:
+  google-forms-mcp:
+    image: ghcr.io/derek-suwho/google-forms-mcp:latest
+    container_name: google-forms-mcp
+    restart: unless-stopped
+    env_file:
+      - /srv/google-forms-mcp/config/connector.env
+    ports:
+      - "127.0.0.1:8767:8000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.google-forms-mcp.entrypoints=websecure"
+      - "traefik.http.routers.google-forms-mcp.rule=Host(`google-forms-mcp.srv1913479.hstgr.cloud`)"
+      - "traefik.http.routers.google-forms-mcp.tls.certresolver=letsencrypt"
+      - "traefik.http.services.google-forms-mcp.loadbalancer.server.port=8000"
+    volumes:
+      - /srv/google-forms-mcp/data:/var/lib/google-forms-mcp
+      - /srv/google-forms-mcp/secrets/google-web-client.json:/run/secrets/google-web-client.json:ro
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3

@@ -5,7 +5,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     GOOGLE_FORMS_MULTIUSER_DATA_DIR=/var/lib/google-forms-mcp \
     PORT=8000
 
-RUN groupadd --system app && useradd --system --gid app --home /app app \
+RUN groupadd --gid 10001 app \
+    && useradd --uid 10001 --gid app --home-dir /app --shell /usr/sbin/nologin app \
     && mkdir -p /app /var/lib/google-forms-mcp \
     && chown -R app:app /app /var/lib/google-forms-mcp
 
