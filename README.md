@@ -11,11 +11,12 @@ Give an existing AI assistant the ability to preview and create native Google Fo
 - Preview-before-create safety boundary
 - Minimal OAuth scope: `forms.body`
 - MCP 2.x stdio transport
+- Authenticated Streamable HTTP transport for Claude and ChatGPT connectors
 - Companion skill in [`skill/google-forms/SKILL.md`](skill/google-forms/SKILL.md)
 
 ## Current MVP limits
 
-Version 0.1 does not yet update existing forms, configure branching, create quizzes, upload files, change themes, or read responses. Google may create an empty form if the follow-up item population request fails; the tool reports the API error rather than pretending creation succeeded.
+Version 0.2 does not yet update existing forms, configure branching, create quizzes, upload files, change themes, or read responses. Google may create an empty form if the follow-up item population request fails; the tool reports the API error rather than pretending creation succeeded.
 
 ## Install
 
@@ -77,6 +78,16 @@ Configure the command as:
 ```
 
 The exact configuration file varies by client.
+
+### Claude and ChatGPT remote connector
+
+Run the authenticated HTTP entrypoint and publish it behind HTTPS:
+
+```bash
+GOOGLE_FORMS_CONNECTOR_TOKEN='<random-token>' uv run google-forms-connector
+```
+
+Connect Claude or ChatGPT to `https://your-domain.example/mcp` with the request header `Authorization: Bearer <random-token>`. The hosted connector currently represents one Google account. See [`docs/connectors.md`](docs/connectors.md) for deployment, platform setup, and security details.
 
 ## Tools
 
