@@ -4,6 +4,7 @@ import hmac
 import os
 
 import uvicorn
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -45,14 +46,33 @@ class BearerAuthApp:
         await self._app(scope, receive, send)
 
 
-def build_http_app(token: str, *, host: str = "127.0.0.1") -> ASGIApp:
+def build_http_app(
+    token: str,
+    *,
+    host: str = "127.0.0.1",
+    public_hosts: list[str] | None = None,
+) -> ASGIApp:
     if not token:
         raise ValueError("A non-empty connector bearer token is required.")
+    allowed_hosts = [
+        "127.0.0.1",
+        "127.0.0.1:*",
+        "localhost",
+        "localhost:*",
+        "testserver",
+        *(public_hosts or []),
+    ]
+    security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=allowed_hosts,
+        allowed_origins=["https://chatgpt.com", "https://claude.ai"],
+    )
     app = mcp.streamable_http_app(
         streamable_http_path="/mcp",
         json_response=True,
         stateless_http=True,
         host=host,
+        transport_security=security,
     )
     return BearerAuthApp(app, token)
 
@@ -65,8 +85,17 @@ def main() -> None:
         )
 
     host = os.environ.get("GOOGLE_FORMS_CONNECTOR_HOST", "0.0.0.0")
+    public_hosts = [
+        value.strip()
+        for value in os.environ.get("GOOGLE_FORMS_CONNECTOR_PUBLIC_HOSTS", "").split(",")
+        if value.strip()
+    ]
     port = int(os.environ.get("PORT", "8000"))
-    uvicorn.run(build_http_app(token, host=host), host=host, port=port)
+    uvicorn.run(
+        build_http_app(token, host=host, public_hosts=public_hosts),
+        host=host,
+        port=port,
+    )
 
 
 if __name__ == "__main__":

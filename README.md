@@ -84,7 +84,9 @@ The exact configuration file varies by client.
 Run the authenticated HTTP entrypoint and publish it behind HTTPS:
 
 ```bash
-GOOGLE_FORMS_CONNECTOR_TOKEN='<random-token>' uv run google-forms-connector
+GOOGLE_FORMS_CONNECTOR_TOKEN='<random-token>' \
+GOOGLE_FORMS_CONNECTOR_PUBLIC_HOSTS='forms.example.com' \
+uv run google-forms-connector
 ```
 
 Connect Claude or ChatGPT to `https://your-domain.example/mcp` with the request header `Authorization: Bearer <random-token>`. The hosted connector currently represents one Google account. See [`docs/connectors.md`](docs/connectors.md) for deployment, platform setup, and security details.

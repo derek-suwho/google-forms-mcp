@@ -36,4 +36,32 @@ def test_mcp_endpoint_accepts_matching_bearer_before_protocol_validation() -> No
             json={"jsonrpc": "2.0", "id": 1, "method": "ping"},
         )
 
-    assert response.status_code != 401
+    assert response.status_code == 200
+
+
+def test_public_host_allowlist_blocks_dns_rebinding() -> None:
+    with TestClient(
+        build_http_app("top-secret", public_hosts=["forms.example.com"])
+    ) as client:
+        allowed = client.post(
+            "/mcp",
+            headers={
+                "Host": "forms.example.com",
+                "Authorization": "Bearer top-secret",
+                "Accept": "application/json, text/event-stream",
+                "Content-Type": "application/json",
+            },
+            json={"jsonrpc": "2.0", "id": 1, "method": "ping"},
+        )
+        blocked = client.post(
+            "/mcp",
+            headers={
+                "Host": "evil.example.com",
+                "Authorization": "Bearer top-secret",
+                "Content-Type": "application/json",
+            },
+            json={"jsonrpc": "2.0", "id": 2, "method": "ping"},
+        )
+
+    assert allowed.status_code == 200
+    assert blocked.status_code == 421

@@ -4,7 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from google_forms_mcp.auth import credential_paths
+from google_forms_mcp.auth import credential_paths, has_supported_scope
+
+
+def test_drive_scope_is_accepted_for_google_forms_creation() -> None:
+    assert has_supported_scope(["https://www.googleapis.com/auth/drive"])
+    assert has_supported_scope(["https://www.googleapis.com/auth/drive.file"])
+    assert has_supported_scope(["https://www.googleapis.com/auth/forms.body"])
+    assert not has_supported_scope(["https://www.googleapis.com/auth/calendar"])
 
 
 def test_credential_paths_honor_environment_overrides(

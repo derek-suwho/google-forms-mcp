@@ -42,6 +42,7 @@ Store the result in `GOOGLE_FORMS_CONNECTOR_TOKEN`. Use a secret manager in prod
 GOOGLE_FORMS_CONNECTOR_TOKEN='<random-token>' \
 GOOGLE_FORMS_CLIENT_SECRET="$HOME/.config/google-forms-mcp/credentials.json" \
 GOOGLE_FORMS_TOKEN="$HOME/.config/google-forms-mcp/token.json" \
+GOOGLE_FORMS_CONNECTOR_PUBLIC_HOSTS='forms.example.com' \
 uv run google-forms-connector
 ```
 

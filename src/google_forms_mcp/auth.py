@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +11,15 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 
 SCOPES = ["https://www.googleapis.com/auth/forms.body"]
+ACCEPTED_SCOPES = {
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/drive.file",
+    "https://www.googleapis.com/auth/forms.body",
+}
+
+
+def has_supported_scope(scopes: Sequence[str] | None) -> bool:
+    return bool(ACCEPTED_SCOPES.intersection(scopes or []))
 
 
 def credential_paths() -> tuple[Path, Path]:
@@ -29,9 +39,11 @@ def load_credentials() -> Credentials:
     credentials: Credentials | None = None
 
     if token_path.exists():
-        credentials = Credentials.from_authorized_user_file(  # type: ignore[no-untyped-call]
-            str(token_path), SCOPES
+        loaded = Credentials.from_authorized_user_file(  # type: ignore[no-untyped-call]
+            str(token_path)
         )
+        if has_supported_scope(loaded.scopes):
+            credentials = loaded
 
     if credentials and credentials.expired and credentials.refresh_token:
         credentials.refresh(Request())  # type: ignore[no-untyped-call]
