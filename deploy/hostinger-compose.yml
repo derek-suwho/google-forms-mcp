@@ -1,6 +1,6 @@
 services:
   google-forms-mcp:
-    image: ghcr.io/derek-suwho/google-forms-mcp:latest
+    image: ghcr.io/derek-suwho/google-forms-mcp@sha256:63fd61c8f2d2097d95b7e80e4fced3d7429e93fe5ff3034cd66897e2b32576a2
     container_name: google-forms-mcp
     restart: unless-stopped
     env_file:
