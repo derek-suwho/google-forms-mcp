@@ -403,11 +403,19 @@ def main() -> None:
         oauth: GoogleWebOAuth | None = None
         if public_base_url:
             try:
-                oauth = GoogleWebOAuth(
-                    multiuser_store(),
-                    os.environ.get("GOOGLE_FORMS_WEB_CLIENT_SECRET", ""),
-                    public_base_url,
-                )
+                client_file = os.environ.get("GOOGLE_FORMS_WEB_CLIENT_SECRET", "")
+                client_id = os.environ.get("GOOGLE_FORMS_WEB_CLIENT_ID", "")
+                client_secret_value = os.environ.get("GOOGLE_FORMS_WEB_CLIENT_SECRET_VALUE", "")
+                if client_file:
+                    oauth = GoogleWebOAuth(multiuser_store(), client_file, public_base_url)
+                else:
+                    oauth = GoogleWebOAuth.from_client_values(
+                        multiuser_store(),
+                        client_id=client_id,
+                        client_secret=client_secret_value,
+                        project_id=os.environ.get("GOOGLE_FORMS_GOOGLE_PROJECT_ID", ""),
+                        public_base_url=public_base_url,
+                    )
             except GoogleWebOAuthNotConfigured:
                 oauth = None
         app = build_multiuser_http_app(

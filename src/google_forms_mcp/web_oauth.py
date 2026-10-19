@@ -26,20 +26,56 @@ class GoogleWebOAuth:
     def __init__(
         self,
         store: MultiUserStore,
-        client_secret_path: str | Path,
+        client_secret_path: str | Path | None,
         public_base_url: str,
+        *,
+        client_config: dict[str, Any] | None = None,
     ) -> None:
         self.store = store
-        self.client_secret_path = Path(client_secret_path).expanduser()
+        self.client_secret_path = (
+            Path(client_secret_path).expanduser() if client_secret_path else None
+        )
         self.public_base_url = public_base_url.rstrip("/")
+        self._configured_client = client_config
         self._validate_client()
 
     @property
     def redirect_uri(self) -> str:
         return f"{self.public_base_url}/oauth/google/callback"
 
+    @classmethod
+    def from_client_values(
+        cls,
+        store: MultiUserStore,
+        *,
+        client_id: str,
+        client_secret: str,
+        project_id: str,
+        public_base_url: str,
+    ) -> GoogleWebOAuth:
+        if not client_id or not client_secret:
+            raise GoogleWebOAuthNotConfigured("Google Web OAuth client ID and secret are required")
+        return cls(
+            store,
+            None,
+            public_base_url,
+            client_config={
+                "web": {
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "project_id": project_id,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                    "redirect_uris": [f"{public_base_url.rstrip('/')}/oauth/google/callback"],
+                }
+            },
+        )
+
     def _client_config(self) -> dict[str, Any]:
-        if not self.client_secret_path.is_file():
+        if self._configured_client is not None:
+            return self._configured_client
+        if self.client_secret_path is None or not self.client_secret_path.is_file():
             raise GoogleWebOAuthNotConfigured(
                 f"Google Web OAuth client file not found: {self.client_secret_path}"
             )

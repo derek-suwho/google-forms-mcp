@@ -1,47 +1,55 @@
 # Hostinger stable deployment
 
-The selected production hostname is:
+Stable hostname:
 
 ```text
 https://google-forms-mcp.srv1913479.hstgr.cloud
 ```
 
-Google Web OAuth must authorize this exact callback:
+Google Web OAuth callback:
 
 ```text
 https://google-forms-mcp.srv1913479.hstgr.cloud/oauth/google/callback
 ```
 
-## Host directories
+## Docker Manager
+
+1. Open VPS → Docker Manager → Compose.
+2. Set the application name to `google-forms-mcp`.
+3. Paste `deploy/hostinger-compose.yml` into the YAML editor.
+4. In the **Environment** section, add:
+
+   ```text
+   GOOGLE_FORMS_WEB_CLIENT_ID=<the Web OAuth client ID>
+   GOOGLE_FORMS_WEB_CLIENT_SECRET_VALUE=<the Web OAuth client secret>
+   ```
+
+5. Deploy.
+
+The stack pulls a public, immutable GHCR digest, runs as UID/GID `10001`, mounts only `/srv/google-forms-mcp/data`, drops Linux capabilities, uses a read-only root filesystem, and is routed through Hostinger Traefik with Let's Encrypt.
+
+## Host data directory
+
+If Hostinger does not create it automatically, create once from the VPS terminal:
 
 ```bash
-sudo install -d -m 700 -o 10001 -g 10001 \
-  /srv/google-forms-mcp/config \
-  /srv/google-forms-mcp/data \
-  /srv/google-forms-mcp/secrets
-
-sudo install -m 600 -o 10001 -g 10001 \
-  /path/to/google-web-client.json \
-  /srv/google-forms-mcp/secrets/google-web-client.json
+sudo install -d -m 700 -o 10001 -g 10001 /srv/google-forms-mcp/data
 ```
 
-Copy `deploy/hostinger.env.example` to `/srv/google-forms-mcp/config/connector.env`, then enforce owner `10001:10001` and mode `0600`.
-
-## Deploy
-
-```bash
-docker compose -f deploy/hostinger-compose.yml pull
-docker compose -f deploy/hostinger-compose.yml up -d
-docker compose -f deploy/hostinger-compose.yml ps
-curl --fail http://127.0.0.1:8767/health
-```
-
-The Traefik labels request the stable Hostinger wildcard hostname and a Let's Encrypt certificate. Before production, replace the image tag with the immutable digest emitted by the verified GitHub Actions build.
-
-## Verify externally
+## Verify
 
 ```bash
 curl --fail https://google-forms-mcp.srv1913479.hstgr.cloud/health
 ```
 
 Then complete one Google login, connect a supported MCP client with the issued token, create a draft, publish it, and disconnect the test user.
+
+## Image updates
+
+GitHub Actions publishes verified images to:
+
+```text
+ghcr.io/derek-suwho/google-forms-mcp
+```
+
+Production Compose pins an immutable digest. Update that digest only after its corresponding workflow run passes tests, typing, formatting, package build, image build, and container smoke tests.
