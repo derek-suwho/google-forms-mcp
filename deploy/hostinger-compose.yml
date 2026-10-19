@@ -1,6 +1,6 @@
 services:
   google-forms-mcp:
-    image: ghcr.io/derek-suwho/google-forms-mcp@sha256:032be1334a3a57e8a872cacf2f04dcd0272bba8cb5862c7dadfbdadaf68f716b
+    image: ghcr.io/derek-suwho/google-forms-mcp@sha256:897421e62150518b5250d4277f5901c487194fa5ab5da701b146504ed26b7dd6
     container_name: google-forms-mcp
     restart: unless-stopped
     ports:
@@ -26,7 +26,7 @@ services:
       - "traefik.http.routers.google-forms-mcp.tls.certresolver=letsencrypt"
       - "traefik.http.services.google-forms-mcp.loadbalancer.server.port=8000"
     volumes:
-      - /srv/google-forms-mcp/data:/var/lib/google-forms-mcp
+      - google-forms-mcp-data:/var/lib/google-forms-mcp
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=32m
@@ -44,3 +44,6 @@ services:
       timeout: 5s
       start_period: 10s
       retries: 3
+
+volumes:
+  google-forms-mcp-data:
