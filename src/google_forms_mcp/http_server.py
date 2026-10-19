@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import html
+import logging
 import os
 import secrets
 import time
@@ -20,6 +21,8 @@ from google_forms_mcp.multiuser import InvalidUserToken, MultiUserStore
 from google_forms_mcp.server import mcp
 from google_forms_mcp.tenant import reset_current_user, set_current_user
 from google_forms_mcp.web_oauth import GoogleWebOAuth, GoogleWebOAuthNotConfigured
+
+logger = logging.getLogger(__name__)
 
 
 def _headers(scope: Scope) -> dict[str, str]:
@@ -264,7 +267,8 @@ class MultiUserAuthApp:
                 user, token = await anyio.to_thread.run_sync(
                     lambda: oauth.complete(state=state, code=code, binding=browser_binding)
                 )
-            except Exception:  # noqa: BLE001 - provider/network failures must become OAuth errors
+            except Exception as exc:  # noqa: BLE001 - provider/network failures must become OAuth errors
+                logger.error("Google OAuth callback failed: %s", type(exc).__name__)
                 oauth_error_response = JSONResponse(
                     {"error": "Google authorization failed"},
                     status_code=400,

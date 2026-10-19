@@ -1,4 +1,5 @@
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
@@ -30,3 +31,10 @@ def test_web_oauth_can_be_built_from_secret_environment_values(tmp_path: Path) -
     )
 
     assert oauth.redirect_uri == "https://forms.example.com/oauth/google/callback"
+    query = parse_qs(urlparse(oauth.authorization_url(binding="browser-binding")).query)
+    assert query.get("include_granted_scopes", ["false"])[0] != "true"
+    assert query["scope"][0].split() == [
+        "openid",
+        "email",
+        "https://www.googleapis.com/auth/forms.body",
+    ]
