@@ -26,15 +26,9 @@ https://google-forms-mcp.srv1913479.hstgr.cloud/oauth/google/callback
 
 5. Deploy.
 
-The stack pulls a public, immutable GHCR digest, runs as UID/GID `10001`, mounts only `/srv/google-forms-mcp/data`, drops Linux capabilities, uses a read-only root filesystem, and is routed through Hostinger Traefik with Let's Encrypt.
+The stack pulls a public, immutable GHCR digest, runs as UID/GID `10001`, mounts one Docker-managed data volume, drops Linux capabilities, uses a read-only root filesystem, and is routed through Hostinger Traefik with Let's Encrypt.
 
-## Host data directory
-
-If Hostinger does not create it automatically, create once from the VPS terminal:
-
-```bash
-sudo install -d -m 700 -o 10001 -g 10001 /srv/google-forms-mcp/data
-```
+The stack uses a Docker-managed named volume for encrypted user credentials, hashed MCP tokens, audit events, and per-user draft databases. Back up the `google-forms-mcp-data` volume and its generated master key together.
 
 ## Verify
 
